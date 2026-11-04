@@ -48,4 +48,12 @@ pub mod float {
     pub fn deposit(ctx: Context<Deposit>, group_name: String, amount: u64) -> Result<()> {
         instructions::deposit::handler(ctx, group_name, amount)
     }
+
+    pub fn close_group(ctx: Context<CloseGroup>, group_name: String) -> Result<()> {
+        instructions::close_group::handler(ctx, group_name)
+    }
+
+    pub fn withdraw(ctx: Context<Withdraw>, group_name: String) -> Result<()> {
+        instructions::withdraw::handler(ctx, group_name)
+    }
 }

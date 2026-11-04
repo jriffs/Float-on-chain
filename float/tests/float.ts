@@ -477,4 +477,91 @@ describe("float", async () => {
     expect(Number(newDepositorToken.amount)).to.equal(Number(previousTokenBalance) + depositAmount); // we minted 2×
 
   });
+
+  it("closes the group", async () => {
+    const [poolPda] = anchor.web3.PublicKey.findProgramAddressSync(
+      [Buffer.from("pool"), groupPda.toBuffer()],
+      program.programId
+    );
+
+    await program.methods
+      .closeGroup(groupName)
+      .accounts({
+        creator: creator.publicKey,
+        group: groupPda,
+        pool: poolPda,
+      } as any)
+      .rpc();
+
+    const group = await program.account.group.fetch(groupPda);
+    expect(group.status).to.equal(2); // GROUP_STATUS_CLOSED
+  });
+
+  it("allows a member to withdraw after the group is closed", async () => {
+    const [poolPda] = anchor.web3.PublicKey.findProgramAddressSync(
+      [Buffer.from("pool"), groupPda.toBuffer()],
+      program.programId
+    );
+
+    // Pool ATA (owned by Pool PDA)
+    const poolAta = await anchor.utils.token.associatedAddress({
+      mint: testUsdcMint,
+      owner: poolPda,
+    });
+
+    // Member (creator) ATA
+    const memberAta = await createAssociatedTokenAccount(
+      provider.connection,
+      creator,
+      testUsdcMint,
+      creator.publicKey
+    ).catch(async () => {
+      // already exists from previous tests
+      return await anchor.utils.token.associatedAddress({
+        mint: testUsdcMint,
+        owner: creator.publicKey,
+      });
+    });
+
+    // Record balances before
+    const poolBefore = await program.account.pool.fetch(poolPda);
+    const mbBefore = await program.account.memberBalance.fetch(creatorBalancePda);
+    const tokenBefore = await getAccount(provider.connection, memberAta);
+
+    const expectedAmount = mbBefore.poolShares
+      .mul(poolBefore.totalValue)
+      .div(poolBefore.totalShares)
+      .toNumber();
+
+    await program.methods
+      .withdraw(groupName)
+      .accounts({
+        member: creator.publicKey,
+        creator: creator.publicKey,
+        group: groupPda,
+        pool: poolPda,
+        memberBalance: creatorBalancePda,
+        settlementMint: testUsdcMint,
+        poolTokenAccount: poolAta,
+        memberTokenAccount: memberAta,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      } as any)
+      .rpc();
+
+    // ---- Assertions ----
+    const mbAfter = await program.account.memberBalance.fetch(creatorBalancePda);
+    expect(mbAfter.poolShares.toNumber()).to.equal(0);
+    expect(mbAfter.depositedPrincipal.toNumber()).to.equal(0);
+
+    const poolAfter = await program.account.pool.fetch(poolPda);
+    expect(poolAfter.totalShares.toNumber()).to.equal(0);
+    expect(poolAfter.totalValue.toNumber()).to.equal(0);
+
+    const tokenAfter = await getAccount(provider.connection, memberAta);
+    expect(Number(tokenAfter.amount) - Number(tokenBefore.amount)).to.equal(
+      expectedAmount
+    );
+  });
 });
