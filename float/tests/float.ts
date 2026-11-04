@@ -214,6 +214,9 @@ describe("float", async () => {
 
     expect(creatorMb.balance.toNumber()).to.equal(50_000_000);
     expect(memberMb.balance.toNumber()).to.equal(-50_000_000);
+
+    const groupAfter = await program.account.group.fetch(groupPda);
+    expect(groupAfter.unsettledMemberCount).to.equal(2);
   });
 
   it("logs an expense with custom shares", async () => {
@@ -269,6 +272,30 @@ describe("float", async () => {
 
     expect(creatorMb.balance.toNumber()).to.equal(110_000_000);
     expect(memberMb.balance.toNumber()).to.equal(-110_000_000);
+
+    const groupAfter = await program.account.group.fetch(groupPda);
+    expect(groupAfter.unsettledMemberCount).to.equal(2);
+  });
+
+  it("rejects closing while member balances remain unsettled", async () => {
+    try {
+      await program.methods
+        .closeGroup(groupName)
+        .accounts({
+          creator: creator.publicKey,
+          group: groupPda,
+          pool: null,
+        } as any)
+        .rpc();
+
+      expect.fail("Closing with unsettled balances should fail");
+    } catch (err) {
+      expect(err).to.exist;
+    }
+
+    const group = await program.account.group.fetch(groupPda);
+    expect(group.status).to.equal(0);
+    expect(group.unsettledMemberCount).to.equal(2);
   });
 
   it("settles a debt between two members with real token transfer", async () => {
@@ -334,6 +361,9 @@ describe("float", async () => {
 
     expect(Number(memberToken.amount)).to.equal(90_000_000);   // 200 - 110
     expect(Number(creatorToken.amount)).to.equal(110_000_000); // received 110
+
+    const group = await program.account.group.fetch(groupPda);
+    expect(group.unsettledMemberCount).to.equal(0);
   });
 
   it("enables the yield pool for the group", async () => {
@@ -563,5 +593,40 @@ describe("float", async () => {
     expect(Number(tokenAfter.amount) - Number(tokenBefore.amount)).to.equal(
       expectedAmount
     );
+  });
+
+  it("allows closing a group that never enabled a pool", async () => {
+    const noPoolGroupName = "No Pool Trip";
+
+    const [noPoolGroupPda] = anchor.web3.PublicKey.findProgramAddressSync(
+      [
+        Buffer.from("group"),
+        creator.publicKey.toBuffer(),
+        Buffer.from(noPoolGroupName),
+      ],
+      program.programId
+    );
+
+    await program.methods
+      .createGroup(noPoolGroupName, testUsdcMint)
+      .accounts({
+        creator: creator.publicKey,
+        settlementMint: testUsdcMint,
+      } as any)
+      .rpc();
+
+    await program.methods
+      .closeGroup(noPoolGroupName)
+      .accounts({
+        creator: creator.publicKey,
+        group: noPoolGroupPda,
+        pool: null,
+      } as any)
+      .rpc();
+
+    const group = await program.account.group.fetch(noPoolGroupPda);
+    expect(group.status).to.equal(2);
+    expect(group.poolEnabled).to.be.false;
+    expect(group.unsettledMemberCount).to.equal(0);
   });
 });

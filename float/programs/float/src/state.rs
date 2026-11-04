@@ -1,5 +1,7 @@
 use anchor_lang::prelude::*;
 
+use crate::error::FloatError;
+
 #[account]
 #[derive(InitSpace)]
 pub struct Group {
@@ -7,9 +9,10 @@ pub struct Group {
     pub name: [u8; 32],
     pub settlement_mint: Pubkey,
     pub member_count: u8,
+    pub unsettled_member_count: u8,
     pub expense_count: u32,
     pub pool_enabled: bool,
-    pub status: u8, // 0 = Active, 1 = Settling, 2 = Closed
+    pub status: u8,
     pub bump: u8,
 }
 
@@ -18,7 +21,7 @@ pub struct Group {
 pub struct MemberBalance {
     pub group: Pubkey,
     pub member: Pubkey,
-    pub balance: i64, // + = owed to them
+    pub balance: i64,
     pub deposited_principal: u64,
     pub pool_shares: u64,
     pub bump: u8,

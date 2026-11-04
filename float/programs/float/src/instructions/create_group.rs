@@ -29,19 +29,25 @@ pub struct CreateGroup<'info> {
     )]
     pub member_balance: Account<'info, MemberBalance>,
 
-    /// CHECK: Just validating the mint exists and is a proper mint
     pub settlement_mint: InterfaceAccount<'info, Mint>,
 
     pub system_program: Program<'info, System>,
 }
 
-pub fn handler(ctx: Context<CreateGroup>, name: String, settlement_mint: Pubkey) -> Result<()> {
+pub fn handler(
+    ctx: Context<CreateGroup>,
+    name: String,
+    settlement_mint: Pubkey,
+) -> Result<()> {
     require!(name.len() <= MAX_NAME_LEN, FloatError::NameTooLong);
+    require!(
+        ctx.accounts.settlement_mint.key() == settlement_mint,
+        FloatError::InvalidSettlementMint
+    );
 
     let group = &mut ctx.accounts.group;
     let member_balance = &mut ctx.accounts.member_balance;
 
-    // Pad name to fixed size
     let mut name_bytes = [0u8; 32];
     name_bytes[..name.len()].copy_from_slice(name.as_bytes());
 
@@ -49,6 +55,7 @@ pub fn handler(ctx: Context<CreateGroup>, name: String, settlement_mint: Pubkey)
     group.name = name_bytes;
     group.settlement_mint = settlement_mint;
     group.member_count = 1;
+    group.unsettled_member_count = 0;
     group.expense_count = 0;
     group.pool_enabled = false;
     group.status = GROUP_STATUS_ACTIVE;

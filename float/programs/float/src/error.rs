@@ -30,4 +30,10 @@ pub enum FloatError {
     GroupNotClosed,
     #[msg("Arithmetic overflow")]
     Overflow,
+    #[msg("Cannot close group while member balances remain unsettled")]
+    OutstandingBalances,
+    #[msg("Pool account is missing or inconsistent with group state")]
+    InvalidPoolState,
+    #[msg("Settlement mint does not match the group's configured mint")]
+    InvalidSettlementMint,
 }
