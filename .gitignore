@@ -1,0 +1,33 @@
+ # Rust build output
+/target/
+
+
+# Anchor / Solana build artifacts and local validator state
+/.anchor/
+/test-ledger/
+/deploy/
+
+# JavaScript / TypeScript dependencies and generated output
+/node_modules/
+/float/node_modules/
+/dist/
+/coverage/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment files and local secrets
+.env
+.env.*
+!.env.example
+*.keypair.json
+*wallet*.json
+
+# Editor and operating-system files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
