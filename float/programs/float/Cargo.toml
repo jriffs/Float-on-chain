@@ -27,6 +27,7 @@ custom-panic = []
 anchor-lang = { version = "1.2.2", features = ["init-if-needed"] }
 anchor-spl = "1.2.2"
 kvault-interface = "0.1.0"
+solana-instruction = "2.3.3"
 
 [dev-dependencies]
 # Cargo.lock pins LiteSVM's Rust-1.89-compatible dependency graph.

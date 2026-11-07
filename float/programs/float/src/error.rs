@@ -36,4 +36,13 @@ pub enum FloatError {
     InvalidPoolState,
     #[msg("Settlement mint does not match the group's configured mint")]
     InvalidSettlementMint,
+
+    #[msg("A required Kamino account was not supplied")]
+    KaminoAccountMissing,
+
+    #[msg("Invalid Kamino program account")]
+    InvalidKaminoProgram,
+
+    #[msg("Kamino vault does not match the configured pool vault")]
+    InvalidKaminoVault,
 }

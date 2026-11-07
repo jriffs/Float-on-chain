@@ -23,6 +23,12 @@ const DEVNET_KLEND_PROGRAM_ID =
 const DEFAULT_RPC_URL = "https://api.devnet.solana.com";
 const RECENT_SLOT_DURATION_MS = 400;
 
+export const DEVNET_KAMINO_VAULT_ADDRESS =
+  "7319GuA3DwpJV1SHKKbyLp9MZwiopfc9rUKqZqWJua7J";
+
+export const DEVNET_USDC_MINT =
+  "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU";
+
 type KitAccountMeta = {
   address: string;
   role: AccountRole;

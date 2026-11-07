@@ -3,6 +3,7 @@ pub mod error;
 pub mod instructions;
 pub mod state;
 pub mod utils;
+pub mod kamino;
 
 use anchor_lang::prelude::*;
 
@@ -57,5 +58,12 @@ pub mod float {
 
     pub fn withdraw(ctx: Context<Withdraw>, group_name: String) -> Result<()> {
         instructions::withdraw::handler(ctx, group_name)
+    }
+
+    pub fn harvest_yield(
+        ctx: Context<HarvestYield>,
+        group_name: String,
+    ) -> Result<()> {
+        instructions::harvest_yield::handler(ctx, group_name)
     }
 }
