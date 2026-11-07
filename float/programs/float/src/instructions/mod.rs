@@ -6,6 +6,7 @@ pub mod enable_pool;
 pub mod deposit;
 pub mod close_group;
 pub mod withdraw;
+pub mod harvest_yield;
 
 
 pub use create_group::*;
@@ -16,3 +17,4 @@ pub use enable_pool::*;
 pub use deposit::*;
 pub use close_group::*;
 pub use withdraw::*;
+pub use harvest_yield::*;

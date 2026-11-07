@@ -1412,6 +1412,7 @@ dependencies = [
  "anchor-spl",
  "kvault-interface",
  "litesvm",
+ "solana-instruction 2.3.3",
  "solana-keypair",
  "solana-message",
  "solana-signer",
