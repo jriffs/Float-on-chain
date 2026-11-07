@@ -122,6 +122,13 @@ pub fn handler(ctx: Context<Withdraw>, _group_name: String) -> Result<()> {
         )?;
     }
 
+    let principal_out = member_balance.deposited_principal;
+
+    pool.total_principal = pool
+        .total_principal
+        .checked_sub(principal_out)
+        .ok_or(FloatError::Overflow)?;
+
     pool.total_shares = pool
         .total_shares
         .checked_sub(shares)

@@ -393,7 +393,8 @@ describe("float", async () => {
     expect(pool.totalValue.toNumber()).to.equal(0);
     expect(pool.isDeployed).to.be.false;
     expect(pool.lastHarvestTs.toNumber()).to.equal(0);
-    expect(pool.kaminoObligation.toBase58()).to.equal(
+    expect(pool.totalPrincipal.toNumber()).to.equal(0);
+    expect(pool.kaminoVault.toBase58()).to.equal(
       anchor.web3.PublicKey.default.toBase58()
     );
   });

@@ -41,7 +41,8 @@ pub fn handler(ctx: Context<EnablePool>, _group_name: String) -> Result<()> {
     pool.group = group.key();
     pool.total_shares = 0;
     pool.total_value = 0;
-    pool.kamino_obligation = Pubkey::default();
+    pool.total_principal = 0;
+    pool.kamino_vault = Pubkey::default();
     pool.last_harvest_ts = 0;
     pool.is_deployed = false;
     pool.bump = ctx.bumps.pool;
