@@ -7,7 +7,7 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-float = "8zVBXrBYLPynr2uiFpWEwgFyBvX3gyvAkpCMQatANL1T"
+float = "GUFWB2jfAK5e8QSra1d2XrqrwBCBr7k3f2FwDWr8CE8m"
 
 [provider]
 cluster = "localnet"

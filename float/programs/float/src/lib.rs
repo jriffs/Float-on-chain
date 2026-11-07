@@ -11,7 +11,7 @@ pub use instructions::*;
 pub use state::*;
 pub use utils::*;
 
-declare_id!("8zVBXrBYLPynr2uiFpWEwgFyBvX3gyvAkpCMQatANL1T");
+declare_id!("GUFWB2jfAK5e8QSra1d2XrqrwBCBr7k3f2FwDWr8CE8m");
 
 #[program]
 pub mod float {

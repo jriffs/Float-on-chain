@@ -31,7 +31,8 @@ pub struct Deposit<'info> {
         mut,
         seeds = [POOL_SEED, group.key().as_ref()],
         bump = pool.bump,
-        constraint = !pool.is_deployed @ FloatError::PoolIsDeployed
+        constraint = !pool.is_deployed @ FloatError::PoolIsDeployed,
+        constraint = pool.group == group.key() @ FloatError::InvalidPoolState
     )]
     pub pool: Account<'info, Pool>,
 
@@ -43,6 +44,9 @@ pub struct Deposit<'info> {
     )]
     pub member_balance: Account<'info, MemberBalance>,
 
+    #[account(
+        address = group.settlement_mint @ FloatError::InvalidSettlementMint
+    )]
     pub settlement_mint: InterfaceAccount<'info, Mint>,
 
     // Depositor's token account
@@ -76,15 +80,17 @@ pub fn handler(ctx: Context<Deposit>, _group_name: String, amount: u64) -> Resul
 
     // ---- Calculate shares ----
     let shares = if pool.total_shares == 0 {
-        // First deposit → 1:1
         amount
     } else {
-        // shares = amount * total_shares / total_value
-        (amount as u128)
+        require!(pool.total_value > 0, FloatError::InsufficientPoolValue);
+
+        let calculated = (amount as u128)
             .checked_mul(pool.total_shares as u128)
             .ok_or(FloatError::Overflow)?
             .checked_div(pool.total_value as u128)
-            .ok_or(FloatError::Overflow)? as u64
+            .ok_or(FloatError::Overflow)?;
+
+        u64::try_from(calculated).map_err(|_| FloatError::Overflow)?
     };
 
     require!(shares > 0, FloatError::ZeroAmount);
@@ -124,6 +130,11 @@ pub fn handler(ctx: Context<Deposit>, _group_name: String, amount: u64) -> Resul
 
     pool.total_value = pool
         .total_value
+        .checked_add(amount)
+        .ok_or(FloatError::Overflow)?;
+
+    pool.total_principal = pool
+        .total_principal
         .checked_add(amount)
         .ok_or(FloatError::Overflow)?;
 
