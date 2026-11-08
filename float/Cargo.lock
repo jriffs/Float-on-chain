@@ -1415,6 +1415,7 @@ dependencies = [
  "solana-instruction 2.3.3",
  "solana-keypair",
  "solana-message",
+ "solana-pubkey 2.4.0",
  "solana-signer",
  "solana-transaction",
 ]

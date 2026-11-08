@@ -3,11 +3,17 @@ use anchor_lang::solana_program::{
     instruction::{AccountMeta, Instruction},
     program::invoke_signed,
 };
+use anchor_lang::prelude::Pubkey as AnchorPubkey;
+use solana_pubkey::Pubkey as SdkPubkey;
 
 use crate::{
     constants::KVAULT_PROGRAM_ID,
     error::FloatError,
 };
+
+pub fn to_sdk_pubkey(key: AnchorPubkey) -> SdkPubkey {
+    SdkPubkey::new_from_array(key.to_bytes())
+}
 
 /// Converts a kvault-interface instruction (Solana 2.x types) into
 /// Anchor's instruction type and patches Mainnet KVault references
