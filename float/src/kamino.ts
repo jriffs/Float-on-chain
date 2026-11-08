@@ -21,6 +21,7 @@ import {
 } from "@solana/spl-token";
 import { AccountMeta, SystemProgram, TransactionInstruction } from "@solana/web3.js";
 import { Program, BN } from "@coral-xyz/anchor";
+import { Float } from "../target/types/float";
 
 const DEVNET_KVAULT_PROGRAM_ID =
   "devkRngFnfp4gBc5a3LsadgbQKdPo8MSZ4prFiNSVmY";
@@ -429,7 +430,7 @@ export function createPoolSharesAtaIx(params: {
 // ---------------------------------------------------------------------------
 
 export interface FloatKaminoContext {
-  program: Program;
+  program: Program<Float>;
   groupName: string;
   creator: PublicKey;
   /** Same key used in group seeds (usually === creator). */
@@ -628,7 +629,7 @@ export async function recallPoolFromKamino(ctx: FloatKaminoContext): Promise<str
 }
 
 export async function harvestPoolYield(ctx: {
-  program: Program;
+  program: Program<Float>;
   groupName: string;
   creator: PublicKey;
   creatorAuthority: PublicKey;

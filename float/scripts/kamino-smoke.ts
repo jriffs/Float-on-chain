@@ -22,6 +22,7 @@ import {
 } from "@solana/spl-token";
 import { PublicKey, Keypair } from "@solana/web3.js";
 import idl from "../target/idl/float.json";
+import { Float } from "../target/types/float";
 
 import {
   DEVNET_KAMINO_VAULT_ADDRESS,
@@ -40,7 +41,8 @@ async function main() {
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
 
-  const program = new Program(idl as anchor.Idl, provider) as Program;
+//   const program = new Program(idl as any, provider) as Program;
+  const program = anchor.workspace.Float as Program<Float>;
   const creator = (provider.wallet as anchor.Wallet).publicKey;
 
   // ---- Configure these for your Devnet group ----

@@ -10,7 +10,7 @@ skip-lint = false
 float = "GUFWB2jfAK5e8QSra1d2XrqrwBCBr7k3f2FwDWr8CE8m"
 
 [provider]
-cluster = "localnet"
+cluster = "devnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
