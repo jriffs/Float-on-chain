@@ -13,6 +13,14 @@ import {
   AccountMeta as Web3AccountMeta,
   PublicKey,
 } from "@solana/web3.js";
+import {
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
+  getAssociatedTokenAddressSync,
+  createAssociatedTokenAccountIdempotentInstruction,
+} from "@solana/spl-token";
+import { AccountMeta, SystemProgram, TransactionInstruction } from "@solana/web3.js";
+import { Program, BN } from "@coral-xyz/anchor";
 
 const DEVNET_KVAULT_PROGRAM_ID =
   "devkRngFnfp4gBc5a3LsadgbQKdPo8MSZ4prFiNSVmY";
@@ -301,4 +309,350 @@ export async function resolveKaminoAccounts(
         toWeb3AccountMeta(meta as KitAccountMeta),
       ),
   };
+}
+
+export const DEVNET_KVAULT_PROGRAM = new PublicKey(
+  DEVNET_KVAULT_PROGRAM_ID,
+);
+export const DEVNET_KLEND_PROGRAM = new PublicKey(
+  DEVNET_KLEND_PROGRAM_ID,
+);
+
+/** Event-authority PDA for the Devnet KVault program. */
+export function getKvaultEventAuthority(): PublicKey {
+  const [pda] = PublicKey.findProgramAddressSync(
+    [Buffer.from("__event_authority")],
+    DEVNET_KVAULT_PROGRAM,
+  );
+  return pda;
+}
+
+// ---------------------------------------------------------------------------
+// Address helpers
+// ---------------------------------------------------------------------------
+
+function asPublicKey(value: unknown, label: string): PublicKey {
+  if (value instanceof PublicKey) return value;
+  if (typeof value === "string") return new PublicKey(value);
+  throw new Error(`Expected PublicKey-compatible value for ${label}, got ${typeof value}`);
+}
+
+function pick(
+  record: Record<string, unknown>,
+  keys: string[],
+  label: string,
+): PublicKey {
+  for (const key of keys) {
+    if (record[key] != null) {
+      return asPublicKey(record[key], `${label}.${key}`);
+    }
+  }
+  throw new Error(
+    `Missing required Kamino account field for ${label}. Tried: ${keys.join(", ")}`,
+  );
+}
+
+export function getPoolPda(
+  programId: PublicKey,
+  groupPda: PublicKey,
+): PublicKey {
+  const [pda] = PublicKey.findProgramAddressSync(
+    [Buffer.from("pool"), groupPda.toBuffer()],
+    programId,
+  );
+  return pda;
+}
+
+export function getGroupPda(
+  programId: PublicKey,
+  creator: PublicKey,
+  groupName: string,
+): PublicKey {
+  const [pda] = PublicKey.findProgramAddressSync(
+    [Buffer.from("group"), creator.toBuffer(), Buffer.from(groupName)],
+    programId,
+  );
+  return pda;
+}
+
+export function getPoolTokenAta(
+  settlementMint: PublicKey,
+  poolPda: PublicKey,
+  tokenProgram: PublicKey = TOKEN_PROGRAM_ID,
+): PublicKey {
+  return getAssociatedTokenAddressSync(
+    settlementMint,
+    poolPda,
+    true,
+    tokenProgram,
+  );
+}
+
+export function getPoolSharesAta(
+  sharesMint: PublicKey,
+  poolPda: PublicKey,
+  sharesTokenProgram: PublicKey = TOKEN_PROGRAM_ID,
+): PublicKey {
+  return getAssociatedTokenAddressSync(
+    sharesMint,
+    poolPda,
+    true,
+    sharesTokenProgram,
+  );
+}
+
+/** Idempotent create for the Pool's Kamino shares ATA (must exist before deploy). */
+export function createPoolSharesAtaIx(params: {
+  payer: PublicKey;
+  poolPda: PublicKey;
+  sharesMint: PublicKey;
+  sharesTokenProgram?: PublicKey;
+}): TransactionInstruction {
+  const tokenProgram = params.sharesTokenProgram ?? TOKEN_PROGRAM_ID;
+  const ata = getPoolSharesAta(
+    params.sharesMint,
+    params.poolPda,
+    tokenProgram,
+  );
+
+  return createAssociatedTokenAccountIdempotentInstruction(
+    params.payer,
+    ata,
+    params.poolPda,
+    params.sharesMint,
+    tokenProgram,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Deploy / Recall account builders
+// ---------------------------------------------------------------------------
+
+export interface FloatKaminoContext {
+  program: Program;
+  groupName: string;
+  creator: PublicKey;
+  /** Same key used in group seeds (usually === creator). */
+  creatorAuthority: PublicKey;
+  groupPda: PublicKey;
+  poolPda: PublicKey;
+  settlementMint: PublicKey;
+  resolved: ResolvedKaminoAccounts;
+  tokenProgram?: PublicKey;
+  sharesTokenProgram?: PublicKey;
+}
+
+/**
+ * Named accounts for deploy_to_kamino + remainingAccounts (refresh list).
+ * Matches the on-chain DeployToKamino accounts struct.
+ */
+export function buildDeployToKaminoAccounts(ctx: FloatKaminoContext): {
+  accounts: Record<string, PublicKey>;
+  remainingAccounts: AccountMeta[];
+} {
+  const d = ctx.resolved.depositAccounts;
+  const tokenProgram = ctx.tokenProgram ?? TOKEN_PROGRAM_ID;
+  const sharesTokenProgram = ctx.sharesTokenProgram ?? TOKEN_PROGRAM_ID;
+
+  const sharesMint = asPublicKey(
+    ctx.resolved.sharesMint,
+    "sharesMint",
+  );
+
+  const accounts: Record<string, PublicKey> = {
+    creator: ctx.creator,
+    creatorAuthority: ctx.creatorAuthority,
+    group: ctx.groupPda,
+    pool: ctx.poolPda,
+    settlementMint: ctx.settlementMint,
+    poolTokenAccount: getPoolTokenAta(
+      ctx.settlementMint,
+      ctx.poolPda,
+      tokenProgram,
+    ),
+    poolSharesAccount: getPoolSharesAta(
+      sharesMint,
+      ctx.poolPda,
+      sharesTokenProgram,
+    ),
+    vaultState: pick(d, ["vaultState", "vault_state", "vault"], "vaultState"),
+    tokenVault: pick(d, ["tokenVault", "token_vault"], "tokenVault"),
+    baseVaultAuthority: pick(
+      d,
+      ["baseVaultAuthority", "base_vault_authority"],
+      "baseVaultAuthority",
+    ),
+    sharesMint,
+    eventAuthority: getKvaultEventAuthority(),
+    kvaultProgram: DEVNET_KVAULT_PROGRAM,
+    klendProgram: DEVNET_KLEND_PROGRAM,
+    tokenProgram,
+    sharesTokenProgram,
+    associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+  };
+
+  return {
+    accounts,
+    remainingAccounts: ctx.resolved.depositRemainingAccounts,
+  };
+}
+
+/**
+ * Named accounts for recall_from_kamino + remainingAccounts (refresh list).
+ * Matches the on-chain RecallFromKamino accounts struct.
+ */
+export function buildRecallFromKaminoAccounts(ctx: FloatKaminoContext): {
+  accounts: Record<string, PublicKey>;
+  remainingAccounts: AccountMeta[];
+} {
+  const w = ctx.resolved.withdrawAccounts;
+  const tokenProgram = ctx.tokenProgram ?? TOKEN_PROGRAM_ID;
+  const sharesTokenProgram = ctx.sharesTokenProgram ?? TOKEN_PROGRAM_ID;
+
+  const sharesMint = asPublicKey(
+    ctx.resolved.sharesMint,
+    "sharesMint",
+  );
+
+  const accounts: Record<string, PublicKey> = {
+    creator: ctx.creator,
+    creatorAuthority: ctx.creatorAuthority,
+    group: ctx.groupPda,
+    pool: ctx.poolPda,
+    settlementMint: ctx.settlementMint,
+    poolTokenAccount: getPoolTokenAta(
+      ctx.settlementMint,
+      ctx.poolPda,
+      tokenProgram,
+    ),
+    poolSharesAccount: getPoolSharesAta(
+      sharesMint,
+      ctx.poolPda,
+      sharesTokenProgram,
+    ),
+
+    vaultState: pick(w, ["vaultState", "vault_state", "vault"], "vaultState"),
+    globalConfig: pick(w, ["globalConfig", "global_config"], "globalConfig"),
+    tokenVault: pick(w, ["tokenVault", "token_vault"], "tokenVault"),
+    baseVaultAuthority: pick(
+      w,
+      ["baseVaultAuthority", "base_vault_authority"],
+      "baseVaultAuthority",
+    ),
+    sharesMint,
+    investedVaultState: pick(
+      w,
+      ["investedVaultState", "invested_vault_state", "vaultState", "vault_state"],
+      "investedVaultState",
+    ),
+    reserve: pick(w, ["reserve"], "reserve"),
+    ctokenVault: pick(w, ["ctokenVault", "ctoken_vault", "cTokenVault"], "ctokenVault"),
+    lendingMarket: pick(w, ["lendingMarket", "lending_market"], "lendingMarket"),
+    lendingMarketAuthority: pick(
+      w,
+      ["lendingMarketAuthority", "lending_market_authority"],
+      "lendingMarketAuthority",
+    ),
+    reserveLiquiditySupply: pick(
+      w,
+      ["reserveLiquiditySupply", "reserve_liquidity_supply"],
+      "reserveLiquiditySupply",
+    ),
+    reserveCollateralMint: pick(
+      w,
+      ["reserveCollateralMint", "reserve_collateral_mint"],
+      "reserveCollateralMint",
+    ),
+    reserveCollateralTokenProgram: pick(
+      w,
+      [
+        "reserveCollateralTokenProgram",
+        "reserve_collateral_token_program",
+        "tokenProgram",
+        "token_program",
+      ],
+      "reserveCollateralTokenProgram",
+    ),
+    instructionSysvarAccount: new PublicKey(
+      "Sysvar1nstructions1111111111111111111111111",
+    ),
+    eventAuthority: getKvaultEventAuthority(),
+    kvaultProgram: DEVNET_KVAULT_PROGRAM,
+    klendProgram: DEVNET_KLEND_PROGRAM,
+    tokenProgram,
+    sharesTokenProgram,
+    associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+  };
+
+  return {
+    accounts,
+    remainingAccounts: ctx.resolved.withdrawRemainingAccounts,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// High-level send helpers
+// ---------------------------------------------------------------------------
+
+export async function deployPoolToKamino(ctx: FloatKaminoContext): Promise<string> {
+  const { accounts, remainingAccounts } = buildDeployToKaminoAccounts(ctx);
+
+  // Ensure shares ATA exists (idempotent).
+  const createAtaIx = createPoolSharesAtaIx({
+    payer: ctx.creator,
+    poolPda: ctx.poolPda,
+    sharesMint: accounts.sharesMint,
+    sharesTokenProgram: accounts.sharesTokenProgram,
+  });
+
+  const sig = await ctx.program.methods
+    .deployToKamino(ctx.groupName)
+    .accounts(accounts as any)
+    .remainingAccounts(remainingAccounts)
+    .preInstructions([createAtaIx])
+    .rpc();
+
+  return sig;
+}
+
+export async function recallPoolFromKamino(ctx: FloatKaminoContext): Promise<string> {
+  const { accounts, remainingAccounts } = buildRecallFromKaminoAccounts(ctx);
+
+  const sig = await ctx.program.methods
+    .recallFromKamino(ctx.groupName)
+    .accounts(accounts as any)
+    .remainingAccounts(remainingAccounts)
+    .rpc();
+
+  return sig;
+}
+
+export async function harvestPoolYield(ctx: {
+  program: Program;
+  groupName: string;
+  creator: PublicKey;
+  creatorAuthority: PublicKey;
+  groupPda: PublicKey;
+  poolPda: PublicKey;
+  settlementMint: PublicKey;
+  tokenProgram?: PublicKey;
+}): Promise<string> {
+  const tokenProgram = ctx.tokenProgram ?? TOKEN_PROGRAM_ID;
+
+  return ctx.program.methods
+    .harvestYield(ctx.groupName)
+    .accounts({
+      creator: ctx.creator,
+      creatorAuthority: ctx.creatorAuthority,
+      group: ctx.groupPda,
+      pool: ctx.poolPda,
+      settlementMint: ctx.settlementMint,
+      poolTokenAccount: getPoolTokenAta(
+        ctx.settlementMint,
+        ctx.poolPda,
+        tokenProgram,
+      ),
+      tokenProgram,
+    } as any)
+    .rpc();
 }

@@ -66,4 +66,18 @@ pub mod float {
     ) -> Result<()> {
         instructions::harvest_yield::handler(ctx, group_name)
     }
+
+    pub fn deploy_to_kamino<'info>(
+        ctx: Context<'info, DeployToKamino<'info>>,
+        group_name: String,
+    ) -> Result<()> {
+        instructions::deploy_to_kamino::handler(ctx, group_name)
+    }
+
+    pub fn recall_from_kamino<'info>(
+        ctx: Context<'info, RecallFromKamino<'info>>,
+        group_name: String,
+    ) -> Result<()> {
+        instructions::recall_from_kamino::handler(ctx, group_name)
+    }
 }
